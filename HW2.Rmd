@@ -1,0 +1,293 @@
+---
+title: "HW2"
+output: html_document
+date: "2024-09-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r first_task}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggpubr) 
+library(forcats)
+library(gridExtra)
+
+file_path <- "C:/Users/enami/Downloads/hogwarts_2024 (1).csv"
+data <- read.csv(file_path)
+
+data <- data %>% mutate (across(where(is.character), as.factor), course = as.factor (course))
+
+theme_custom <- function(base_size = 15) {
+  theme(
+    text = element_text(size = base_size), 
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),  
+    panel.grid = element_blank(),  
+    axis.line = element_line(color = "black")  ,
+    
+  )
+}
+
+# Задание 1: Скаттерплот между суммарным баллом и оценкой по травологии
+task1 <- ggplot(data, aes(x = `Herbology.exam`, y = result, color = house)) +
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(title = "Оценка по травологии и общий балл",
+       x = "Экзамен по травологии",
+       y = "Суммарный балл") +
+  theme_custom()
+task1
+
+#Самые низкие баллы и оценки по травологии присутствуют только у слизерина
+# Задание 2: Скаттерплоты для нескольких экзаменов с аннотациями
+data_long <- data %>%
+  pivot_longer(
+    cols = c(`Herbology.exam`, `Muggle.studies.exam`, `Divinations.exam`, `Potions.exam`),
+    names_to = "subject",
+    values_to = "score"
+  )
+table(data_long$house)
+data_long <- data_long %>%
+  mutate(house = recode(house,
+                        "Gryffindor" = "Грифффиндор", 
+                        "Hufflepuff" = "Пуффендуй", 
+                        "Ravenclaw" = "Когтевран", 
+                        "Slytherin" = "Слизерин"))
+ggplot(data_long, aes(x = score, y = result, color = house)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ subject) +
+  scale_color_manual(values = c(
+    "Гриффиндор" = "#C50000", 
+    "Пуффендуй" = "#ECB939", 
+    "Когтевран" = "#41A6D9", 
+    "Слизерин" = "#1F5D25"
+  )) +
+  labs(
+    title = "Связь между суммарным баллом и оценками",
+    x = "Оценка",
+    y = "Суммарный балл"
+  ) +
+  theme_custom()
+#Только по зельеварение Слизерин явно выбивается среди других факультетов с самыми высокими оценками, в то время как в остальных предметах Слизерин занимают нишу с самыми низкими оценками. Слизерин делится на две группы - очень плохо учатся и очень хорошо. По зельеварению нет плохо учащихся Слизеринцев.
+# Задание 3: Видоизменение графика с группировкой линий тренда
+colnames(data)
+table(data_long$bloodStatus)
+graph_check <- ggplot(data_long, aes(x = score, y = result,color = house )) +
+  geom_point(size = 3, alpha = 0.6) +
+  geom_smooth(aes(color = bloodStatus), method = "lm", se = FALSE) +
+  facet_wrap(~ subject) +
+  scale_color_manual(values = c(
+    "Гриффиндор" = "#C50000", 
+    "Пуффендуй" = "#ECB939", 
+    "Когтевран" = "#41A6D9", 
+    "Слизерин" = "#1F5D25",
+    "half-blood" = "#808080",
+    "muggle-born" = "#7A4B3A",
+    "pure-blood"= "#006F73"
+  )) +
+  labs(
+    title = "Связь между суммарным баллом и оценками с трендами",
+    x = "Оценка",
+    y = "Суммарный балл",
+    color = "Факультет"
+  ) +
+  theme_custom() +
+  theme(legend.position = "bottom")
+
+#ggsave("C:/Users/enami/Downloads/graph_check.png", plot = graph_check, bg = "white", dpi = #300)
+#По последнему экзамену (зельеварение) тренд сворачивается за счет Слизерина который очень хорошо сдает этот экзамен, при этом плохо сдавая остальные. Примечание: Я не поняла задание просто выбрать какую то категориальную переменную и сделать по ней линии тренда? А какую, любую?
+```
+```{r task 2}
+
+
+data_long <- data %>%
+  select(bloodStatus, week_1:week_17) %>%
+  pivot_longer(cols = starts_with("week"), names_to = "week", values_to = "scores") %>%
+  group_by(bloodStatus)%>%
+  summarise(`Total score` = sum(scores))
+ggplot(data_long, aes(x = bloodStatus, y = `Total score`)) +
+  geom_bar(stat = "identity", fill = "lightgreen") + 
+  labs(
+    title = "Набранные баллы по происхождению",
+    x = "Происхождение",
+    y = "Общая сумма баллов"
+  ) +
+  theme_custom()
+#Полукровки набирают больший баллов, чем все остальные
+# Группировка данных по bloodStatus и gender с суммированием баллов вот это надо доисправлять
+data_long <- data %>%
+  select(bloodStatus, week_1:week_17) %>%
+  pivot_longer(cols = starts_with("week"), names_to = "week", values_to = "scores") %>%
+  group_by(bloodStatus)%>%
+  summarise(`Total score` = sum(scores)) 
+#Баллы на студента полукрови 1,340; чистая кровь 1.795; грязная кровь 1,739. Если просто на #график смотреть, то полукровки набирают самое большое количество баллов, но если #учитываять количество студентов, nто чистая кровь набирает больше. Тк полукровок 391, в то время как чистокровок 109, а грязнокровок всего 60, что может обьяснить что их сумма баллов сама маленькая. С изначальной гипотезой о полукровках не соотносится
+student_num <- aggregate(rep(1, nrow(data)), by = list(data$bloodStatus), FUN = sum)
+colnames(student_num) <- c("bloodStatus", "student_count")
+data_long <- merge(data_long, student_num, by = "bloodStatus", all.x = TRUE)
+data_long$bloodStatus <- factor(data_long$bloodStatus, levels = data_long$bloodStatus[order(-data_long$`Total score`)])
+save_graph <- ggplot(data_long, aes(x = bloodStatus, y = `Total score`)) +
+  geom_bar(stat = "identity", fill = "lightgreen", color = "black", width = 0.7) +
+  geom_label(aes(label = student_count), fill = "darkgray", fontface = "bold", size = 5) +
+  labs(
+    title = "Набранные баллы по происхождению",
+    x = "Тип происхождения",
+    y = "Общая сумма баллов"
+  ) +
+  theme_custom()
+save_graph
+ggsave("C:/Users/enami/Downloads/saved_graph.png", plot = save_graph, bg = "white", dpi =300)
+
+colnames(data_long)
+colnames(data)
+nrow(data_long)
+nrow(data)
+data_gen_long <- data %>%
+  select(id, bloodStatus, sex) %>% 
+  pivot_longer(cols = "sex", names_to = "variable", values_to = "sex")
+data_long <- merge(data_long, data_gen_long, by = "bloodStatus", all.x = TRUE)
+save_graph_new <- ggplot(data_long, aes(x = bloodStatus, y = `Total score`, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black", width = 0.7) +
+  geom_label(aes(label = student_count), fill = "darkgray", fontface = "bold", size = 5, 
+             position = position_dodge(width = 0.7), hjust = 1) +  
+  labs(
+    title = "Total sum by purity and gender",
+    x = "Purity",
+    y = "Total sum"
+  ) +
+  scale_y_continuous(breaks = seq(0, max(data_long$`Total score`), by = 1000)) +  
+  theme_custom()
+save_graph_new
+#функция coord_ip делает данные изометрическими, нужна для создания соразмеримых маштабов, #облегчает интепретацию визуальную. В больших данных могут возникнуть проблемы с #отображением, если диапазон по одной оси намного больше, чем по другой. График может стать #неудобным для восприятия. Данные могут иметь разные размерности
+```
+```{r task3}
+
+
+histogram_plot <- ggplot(data) + 
+  geom_histogram(aes(x = Potions.exam, fill = "Зельеварение"), 
+                 binwidth = 5, alpha = 0.5, color = "black") + 
+  geom_histogram(aes(x = Study.of.ancient.runes.exam, fill = "Древние руны"), 
+                 binwidth = 5, alpha = 0.5, color = "black") + 
+  scale_fill_manual(values = c("Зельеварение" = "lightblue", "Древние руны" = "lightpink")) +
+  labs(title = "Гистограмма", 
+       x = "Баллы", y = "Частота") +
+  theme_custom() 
+histogram_plot
+
+
+boxplott <- ggplot(data) + 
+  geom_boxplot(aes(x = "Зельеварение", y = Potions.exam, fill = "Зельеварение"), 
+               color = "lightblue", alpha = 0.5) + 
+  geom_boxplot(aes(x = "Древние руны", y = Study.of.ancient.runes.exam, fill = "Древние руны"), 
+               color = "lightpink", alpha = 0.5) + 
+  scale_fill_manual(values = c("Зельеварение" = "lightblue", "Древние руны" = "lightpink")) +
+  labs(title = "Ящик с усамим", 
+       x = "", y = "Баллы") +
+  theme_custom() 
+boxplott
+
+densityp <- ggplot(data) + 
+  geom_density(aes(x = Potions.exam, fill = "Зельеварение"), alpha = 0.5, color = "lightblue") + 
+  geom_density(aes(x = Study.of.ancient.runes.exam, fill = "Древние руны"), alpha = 0.5, color = "lightpink") +
+  scale_fill_manual(values = c("Зельеварение" = "lightblue", "Древние руны" = "lightpink")) +
+  labs(title = "Плотность баллов", 
+       x = "Баллы", y = "Плотность") +
+  theme_custom()
+
+densityp
+grid.arrange(
+  histogram_plot, boxplott, 
+  densityp, 
+  ncol = 2, nrow = 2, 
+  heights = c(1, 0.5)
+)
+#########
+
+plot1 <- ggplot(data, aes(x = bloodStatus, y = Potions.exam, fill = bloodStatus)) +
+  stat_summary(fun = "mean", geom = "bar", width = 0.6, color = "black") +
+  labs(title = "Средний балл по зельеварению по происхождению", 
+       x = "Происхождения", y = "Средний балл зельеварения") +
+  scale_fill_manual(values = c("half-blood" = "#808080",
+    "muggle-born" = "#7A4B3A",
+    "pure-blood"= "#006F73")) +
+  theme_custom()
+plot1
+
+# кажется что у маглов меньше балл, чем у чистокровных и грязнокровных
+#ранее мы выяснили что маглов в целом меньше
+#давайте добавим новые колонки для какого-нибудь магл френдли предмета
+
+plot2 <- data %>%
+  gather(key = "subject", value = "score", Potions.exam, Muggle.studies.exam)
+plot2draw <- ggplot(plot2, aes(x = bloodStatus, y = score, fill = bloodStatus)) +
+  stat_summary(fun = "mean", geom = "bar", width = 0.6, color = "black") +
+  facet_wrap(~ subject, scales = "free_y") + 
+  scale_fill_manual(values = c("pure-blood" = "#006F73", 
+                               "half-blood" = "#808080", 
+                               "muggle-born" = "#7A4B3A")) +
+  labs(title = "Средний балл по двум предметам", 
+       x = "Происхождени", 
+       y = "Средний балл") +
+  theme_custom()+
+  theme(legend.position = "bottom", 
+        legend.key.size = unit(1.5, "lines"))
+
+plot2draw
+# ага! действительно, у маглов выше средний балл по предмету, буквально изучающему магглов
+# при этом средний балл соизмерим с полукровками и грязнокровками, что может указать на доброго понимающего учителя, которого с некоторой ненулевой вероятностью съест змея
+
+##ggarrange здесь не нужен, думаю, так как второй график по сути и есть первый + новый
+plot2drawnew <- ggplot(plot2, aes(x = fct_relevel(bloodStatus, "muggle-born", "pure-blood", "half-blood"), 
+                               y = score, fill = bloodStatus)) +
+  stat_summary(fun = "mean", geom = "bar", width = 0.6, color = "black") +
+  facet_wrap(~ subject, scales = "free_y") + 
+  scale_fill_manual(values = c("pure-blood" = "#006F73", 
+                               "half-blood" = "#808080", 
+                               "muggle-born" = "#7A4B3A")) +
+  labs(title = "Средний балл по двум предметам", 
+       x = "Происхождение", 
+       y = "Средний балл") +
+  theme_custom() +
+  theme(legend.position = "bottom", 
+        legend.key.size = unit(1.5, "lines"))
+
+plot2drawnew
+#а что значит скорректировать название оси? на русский перевести?
+plot2drawsupernew <- ggplot(plot2 %>%
+                        mutate(bloodStatus = recode(bloodStatus, 
+                                                    "muggle-born" = "Маглорожденные", 
+                                                    "pure-blood" = "Чистокровные", 
+                                                    "half-blood" = "Полукровки")),
+                      aes(x = fct_relevel(bloodStatus, "Маглорожденные", "Чистокровные", "Полукровки"), 
+                          y = score, fill = bloodStatus)) +
+  stat_summary(fun = "mean", geom = "bar", width = 0.6, color = "black") +
+  facet_wrap(~ subject, scales = "free_y") + 
+  scale_fill_manual(values = c("Чистокровные" = "#006F73", 
+                               "Полукровки" = "#808080", 
+                               "Маглорожденные" = "#7A4B3A")) +
+  labs(title = "Средний балл по двум предметам", 
+       x = "Происхождение", 
+       y = "Средний балл") +
+  theme_custom() +
+  theme(legend.position = "bottom", 
+        legend.key.size = unit(3, "lines"),
+        axis.text.x = element_text(angle = 45, hjust = 1)) #меня как-то уничтожил Reviewer #2 за подписи под углом и серый базовый ггплотовский текст, было больно
+
+plot2drawsupernew
+```
+
+### Ответы на вопросы
+
+Распределение связано с тем, что большинство волшебников является полукровками (то есть в родителях есть только один волшебник)
+
+Распределение по полу соотносится с тем, что мы видели в первом пункте.
